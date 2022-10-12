@@ -25,7 +25,7 @@ You can find the standard credentials as well as further database configurations
 - Docker
 
 ### Steps
-1. Clone the GitHub Repository - https://github.com/catenax-ng/product-dft-autosetup
+1. Clone the GitHub Repository - https://github.com/catenax-ng/product-autosetup-backend
 2. Get your instance of postgres running.
 3. Setup your project environment to JDK 18
 4. Start the application from your IDE.
