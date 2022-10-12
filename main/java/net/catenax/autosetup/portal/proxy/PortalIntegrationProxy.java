@@ -1,6 +1,6 @@
 /********************************************************************************
  * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the CatenaX (ng) GitHub Organisation
+ * Copyright (c) 2022 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -18,16 +18,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-package net.catenax.autosetup.portal.proxy;
+package org.eclipse.tractusx.autosetup.portal.proxy;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import net.catenax.autosetup.model.KeycloakTokenResponse;
-import net.catenax.autosetup.portal.model.ServiceInstanceResultRequest;
-import net.catenax.autosetup.portal.model.ServiceInstanceResultResponse;
+import org.eclipse.tractusx.autosetup.model.KeycloakTokenResponse;
+import org.eclipse.tractusx.autosetup.portal.model.ServiceInstanceResultRequest;
+import org.eclipse.tractusx.autosetup.portal.model.ServiceInstanceResultResponse;
 
 @FeignClient(name = "PortalIntegrationProxy", url = "${portal.url}", configuration = PortalIntegrationConfiguration.class)
 public interface PortalIntegrationProxy {

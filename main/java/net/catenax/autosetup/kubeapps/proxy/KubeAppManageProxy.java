@@ -1,6 +1,6 @@
 /********************************************************************************
  * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the CatenaX (ng) GitHub Organisation
+ * Copyright (c) 2022 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -18,7 +18,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-package net.catenax.autosetup.kubeapps.proxy;
+package org.eclipse.tractusx.autosetup.kubeapps.proxy;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import net.catenax.autosetup.kubeapp.model.CreateInstalledPackageRequest;
+import org.eclipse.tractusx.autosetup.kubeapp.model.CreateInstalledPackageRequest;
 
 @FeignClient(name = "KubeAppManageProxy", url = "${kubeapp.url}", configuration = ProxyConfiguration.class)
 public interface KubeAppManageProxy {

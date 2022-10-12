@@ -1,6 +1,6 @@
 /********************************************************************************
  * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the CatenaX (ng) GitHub Organisation
+ * Copyright (c) 2022 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -18,7 +18,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-package net.catenax.autosetup.daps.proxy;
+package org.eclipse.tractusx.autosetup.daps.proxy;
 
 import java.net.URI;
 import java.util.Map;
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-import net.catenax.autosetup.model.KeycloakTokenResponse;
+import org.eclipse.tractusx.autosetup.model.KeycloakTokenResponse;
 
 @FeignClient(name = "DAPsWrapperProxy", url = "placeholder", configuration = DAPsWrapperProxyConfiguration.class)
 public interface DAPsWrapperProxy {
