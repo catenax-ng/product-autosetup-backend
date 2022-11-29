@@ -114,7 +114,7 @@ spec:
             - name: DNS_NAME_PROTOCOL
               value: "https"
             - name: DNS_NAME
-              value: "tenantname.cx.dih-cloud.com"
+              value: "tenantname.beta.cx.dih-cloud.com"
             - name: RETRY_MAXATTEMPTS
               value: "3"
             - name: RETRY_BACKOFFDELAY
