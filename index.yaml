@@ -2,8 +2,18 @@ apiVersion: v1
 entries:
   autosetup:
   - apiVersion: v2
+    appVersion: 0.0.2
+    created: "2022-11-29T20:08:18.355924+05:30"
+    description: A Helm chart for Kubernetes
+    digest: 2e7560556cdc9047add11708a05d352117356fa36060bac0c2cc4a3e476f41ae
+    name: autosetup
+    type: application
+    urls:
+    - https://catenax-ng.github.io/product-autosetup-backend/autosetup-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
     appVersion: 0.0.1
-    created: "2022-11-29T16:06:30.804535+05:30"
+    created: "2022-11-29T20:08:18.350953+05:30"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -14,6 +24,6 @@ entries:
     name: autosetup
     type: application
     urls:
-    - https://catenax.github.io/product-autosetup-backend/autosetup-0.0.1.tgz
+    - https://catenax-ng.github.io/product-autosetup-backend/autosetup-0.0.1.tgz
     version: 0.0.1
-generated: "2022-11-29T16:06:30.798449+05:30"
+generated: "2022-11-29T20:08:18.345519+05:30"
