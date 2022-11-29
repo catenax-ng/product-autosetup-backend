@@ -3,7 +3,7 @@ entries:
   autosetup:
   - apiVersion: v2
     appVersion: 0.0.1
-    created: "2022-11-29T16:06:30.804535+05:30"
+    created: "2022-11-29T19:47:03.638638+05:30"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -16,4 +16,4 @@ entries:
     urls:
     - https://catenax.github.io/product-autosetup-backend/autosetup-0.0.1.tgz
     version: 0.0.1
-generated: "2022-11-29T16:06:30.798449+05:30"
+generated: "2022-11-29T19:47:03.619532+05:30"
