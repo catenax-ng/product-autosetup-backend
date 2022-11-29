@@ -75,9 +75,9 @@ readinessProbe:
 postgres:
   enabled: true
   auth:
-    username: "dftUser"
-    database: "dftdb"
-    existingSecret: autosetup-psql-secret
+    username: "autobetauser"
+    database: "autobetadb"
+    existingSecret: autosetup-beta-postgresql
     secretKeys:
         adminPasswordKey: "postgres-password"
         userPasswordKey: "password"
