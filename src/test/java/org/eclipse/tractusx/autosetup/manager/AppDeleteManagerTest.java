@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -27,9 +27,6 @@ import java.util.Map;
 
 import org.eclipse.tractusx.autosetup.constant.AppNameConstant;
 import org.eclipse.tractusx.autosetup.constant.ToolType;
-import org.eclipse.tractusx.autosetup.manager.AppDeleteManager;
-import org.eclipse.tractusx.autosetup.manager.AutoSetupTriggerManager;
-import org.eclipse.tractusx.autosetup.manager.KubeAppsPackageManagement;
 import org.eclipse.tractusx.autosetup.model.SelectedTools;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -61,11 +58,11 @@ class AppDeleteManagerTest {
         mockInputMap.put("targetCluster","test");
 
         SelectedTools selectedTools = SelectedTools.builder()
-                .tool(ToolType.DFT)
-                .label("DFT")
+                .tool(ToolType.EDC_TRACTUS)
+                .label("EDC_TRACTUS")
                 .build();
 
-        mockInputMap = appDeleteManager.deletePackage(AppNameConstant.POSTGRES_DB, selectedTools, mockInputMap, null);
+        mockInputMap = appDeleteManager.deletePackage(AppNameConstant.EDC_CONNECTOR, selectedTools, mockInputMap, null);
 
         assertEquals(1, mockInputMap.size());
         assertEquals("test", mockInputMap.get("targetCluster"));

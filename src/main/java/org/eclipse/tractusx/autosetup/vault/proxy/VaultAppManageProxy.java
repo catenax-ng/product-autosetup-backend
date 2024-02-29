@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -24,6 +24,7 @@ import java.net.URI;
 
 import org.eclipse.tractusx.autosetup.model.VaultSecreteRequest;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -32,5 +33,8 @@ public interface VaultAppManageProxy {
 
 	@PostMapping
     String uploadKeyandValue(URI url, @RequestBody VaultSecreteRequest vaultSecreteRequest);
+	
+	@DeleteMapping
+    String deleteKeyandValue(URI url);
 
 }

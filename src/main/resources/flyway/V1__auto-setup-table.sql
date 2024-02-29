@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -38,6 +38,8 @@ INSERT INTO app_tbl
 (app_name, context_cluster, context_namespace, expected_input_data, output_data, package_identifier, package_version, plugin_name, plugin_version, required_yaml_configuration, yaml_value_field_type)
 VALUES('DFT_BACKEND', 'default', 'kubeapps', 'server.port=8080
 
+spring.main.allow-bean-definition-overriding=true
+	
 spring.servlet.multipart.enabled=true
 
 spring.servlet.multipart.file-size-threshold=2KB
@@ -62,15 +64,9 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 
 spring.jpa.open-in-view=false
 
-spring.datasource.url=$\{dftdatabaseurl\}
+digital-twins.hostname=$\{sde.digital-twins.hostname\}
 
-spring.datasource.username=$\{username\}
-
-spring.datasource.password=$\{password\}
-
-digital-twins.hostname=$\{digital-twins.hostname\}
-
-digital-twins.authentication.url=$\{digital-twins.authentication.url\}
+digital-twins.authentication.url=$\{sde.digital-twins.authentication.url\}
 
 digital-twins.authentication.clientId=$\{digital-twins.authentication.clientId\}
 	
@@ -78,9 +74,7 @@ digital-twins.authentication.clientSecret=$\{digital-twins.authentication.client
 
 digital-twins.authentication.grantType=client_credentials
 
-edc.enabled=true
-
-edc.hostname=$\{controlPlaneDataEndpoint\}
+edc.hostname=$\{controlPlaneEndpoint\}
 
 edc.apiKeyHeader=$\{edcApiKey\}
 
@@ -102,38 +96,36 @@ edc.consumer.apikey=$\{edcApiKeyValue\}
 
 edc.consumer.datauri=/api/v1/ids/data
 
-keycloak.realm=$\{dftcloakrealm\}
+keycloak.clientid=$\{dftbackendkeycloakclientid\}
 
-keycloak.auth-server-url=$\{dftkeycloakurl\}
+spring.security.oauth2.resourceserver.jwt.issuer-uri=$\{sde.resourceServerIssuer\}
 
-keycloak.ssl-required=external
+springdoc.api-docs.path=/api-docs
 
-keycloak.resource=$\{dftbackendkeycloakclientid\}
+springdoc.swagger-ui.oauth.client-id=$\{dftbackendkeycloakclientid\}
 
-keycloak.use-resource-role-mappings=true
+partner.pool.hostname=$\{sde.partner.pool.hostname\}
 
-keycloak.bearer-only=true
+portal.backend.hostname=$\{sde.portal.backend.hostname\}
 
-partner.pool.hostname=$\{dftprotalpool\}
+connector.discovery.token-url=$\{sde.connector.discovery.token-url\}
 
-portal.backend.hostname=$\{dftprotalbackend\}
+connector.discovery.clientId=$\{sde.connector.discovery.clientId\}
 
-clientId=$\{dftportalclientid\}
-
-clientSecret=$\{dftportalclientSecret\}', NULL, 'orch-repo/dftbackend', '1.3.8', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname":"$\{dnsName\}",  "annotations": {}, "className": "nginx", "endpoints":["default"], "tls":{"enabled":true, "secretName":"dftbackend"}, "certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
+connector.discovery.clientSecret=$\{sde.connector.discovery.clientSecret\}', NULL, 'sde-backend/dftbackend', '2.0.0', 'helm.packages', 'v1alpha1', '{"dftpostgresql": {"enabled": true, "primary":{"persistence":{"size" :"1Gi"}},"persistence":{"size" :"1Gi"}, "auth" : {"secretKeys":{"password":"$\{postgresPassword}"\},"username":"$\{username\}","database":"$\{database\}"}},"ingresses":[{"enabled": true, "hostname":"$\{dnsName\}",  "annotations": {}, "className": "nginx", "endpoints":["default"], "tls":{"enabled":true, "secretName":"dftbackend"}, "certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
 INSERT INTO app_tbl
 (app_name, context_cluster, context_namespace, expected_input_data, output_data, package_identifier, package_version, plugin_name, plugin_version, required_yaml_configuration, yaml_value_field_type)
 VALUES('DFT_FRONTEND', 'default', 'kubeapps', 'REACT_APP_API_URL=$\{dftBackEndUrl\}
 
-REACT_APP_KEYCLOAK_URL=$\{dftkeycloakurl\}
+REACT_APP_KEYCLOAK_URL=$\{sde.keycloak.auth\}
 
-REACT_APP_KEYCLOAK_REALM=$\{dftcloakrealm\}
+REACT_APP_KEYCLOAK_REALM=$\{sde.keycloak.realm\}
 
 REACT_APP_CLIENT_ID=$\{dftfrontendkeycloakclientid\}
 
 REACT_APP_DEFAULT_COMPANY_BPN=$\{bpnNumber\}
 
-REACT_APP_FILESIZE=268435456', NULL, 'orch-repo/dftfrontend', '1.3.0', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname":"$\{dnsName\}",  "annotations": {}, "className": "nginx", "endpoints":["default"], "tls":{"enabled":true, "secretName":"dftfrontend"}, "certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
+REACT_APP_FILESIZE=268435456', NULL, 'sde-frontend/dftfrontend', '2.0.0', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname":"$\{dnsName\}",  "annotations": {}, "className": "nginx", "endpoints":["default"], "tls":{"enabled":true, "secretName":"dftfrontend"}, "certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
 INSERT INTO app_tbl
 (app_name, context_cluster, context_namespace, expected_input_data, output_data, package_identifier, package_version, plugin_name, plugin_version, required_yaml_configuration, yaml_value_field_type)
 VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\{dftAddress\}
@@ -206,7 +198,7 @@ VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\
 	
     edc.datasource.asset.user=$\{username\}
 	
-    edc.datasource.asset.password=$\{password\}
+    edc.datasource.asset.password=$\{appdbpass\}
 	
     edc.datasource.contractdefinition.name=contractdefinition
 	
@@ -214,7 +206,7 @@ VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\
 	
     edc.datasource.contractdefinition.user=$\{username\}
 	
-    edc.datasource.contractdefinition.password=$\{password\}
+    edc.datasource.contractdefinition.password=$\{appdbpass\}
 	
     edc.datasource.contractnegotiation.name=contractnegotiation
 	
@@ -222,7 +214,7 @@ VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\
 	
     edc.datasource.contractnegotiation.user=$\{username\}
 	
-    edc.datasource.contractnegotiation.password=$\{password\}
+    edc.datasource.contractnegotiation.password=$\{appdbpass\}
 	
     edc.datasource.policy.name=policy
 	
@@ -230,7 +222,7 @@ VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\
 	
     edc.datasource.policy.user=$\{username\}
 	
-    edc.datasource.policy.password=$\{password\}
+    edc.datasource.policy.password=$\{appdbpass\}
 	
     edc.datasource.transferprocess.name=transferprocess
 	
@@ -238,7 +230,7 @@ VALUES('EDC_CONTROLPLANE', 'default', 'kubeapps', 'edc.receiver.http.endpoint=$\
 	
     edc.datasource.transferprocess.user=$\{username\}
 	
-    edc.datasource.transferprocess.password=$\{password\}', NULL, 'edcrepo/edc-controlplane', '0.1.1', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname": "$\{dnsName\}", "annotations": {}, "className": "nginx", "endpoints":["ids", "data", "control", "default"], "tls":{"enabled": true, "secretName":"edccontrolplane"},"certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
+    edc.datasource.transferprocess.password=$\{appdbpass\}', NULL, 'orchestrator/edc-controlplane', '0.1.6', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname": "$\{dnsName\}", "annotations": {}, "className": "nginx", "endpoints":["ids", "data", "control", "default"], "tls":{"enabled": true, "secretName":"edccontrolplane"},"certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
 INSERT INTO app_tbl
 (app_name, context_cluster, context_namespace, expected_input_data, output_data, package_identifier, package_version, plugin_name, plugin_version, required_yaml_configuration, yaml_value_field_type)
 VALUES('EDC_DATAPLANE', 'default', 'kubeapps', 'edc.hostname=$\{dnsName\}
@@ -249,7 +241,7 @@ edc.vault.hashicorp.token=$\{vaulttoken\}
 
 edc.vault.hashicorp.timeout.seconds=$\{vaulttimeout\}
 
-edc.dataplane.token.validation.endpoint=$\{controlPlaneValidationEndpoint\}', NULL, 'edcrepo/edc-dataplane', '0.1.1', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname": "$\{dnsName\}", "annotations": {}, "className": "nginx", "endpoints":["public"], "tls":{"enabled": true, "secretName":"edcdataplane"},"certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
+edc.dataplane.token.validation.endpoint=$\{controlPlaneValidationEndpoint\}', NULL, 'orchestrator/edc-dataplane', '0.1.6', 'helm.packages', 'v1alpha1', '{"ingresses":[{"enabled": true, "hostname": "$\{dnsName\}", "annotations": {}, "className": "nginx", "endpoints":["public"], "tls":{"enabled": true, "secretName":"edcdataplane"},"certManager":{"clusterIssuer":"letsencrypt-prod"}}], "configuration": {"properties": "$\{yamlValues\}"}}', 'PROPERTY');
 INSERT INTO app_tbl
 (app_name, context_cluster, context_namespace, expected_input_data, output_data, package_identifier, package_version, plugin_name, plugin_version, required_yaml_configuration, yaml_value_field_type)
 VALUES('POSTGRES_DB', 'default', 'kubeapps', '{"postgresPassword":"$\{postgresPassword\}",

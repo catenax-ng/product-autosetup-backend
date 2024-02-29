@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -20,6 +20,8 @@
 
 package org.eclipse.tractusx.autosetup.exception;
 
+import org.eclipse.tractusx.autosetup.utility.LogUtil;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -32,6 +34,6 @@ public class ServiceException extends RuntimeException {
 
 	public ServiceException(String exceptionstr) {
 		super(exceptionstr);
-		log.error(exceptionstr);
+		log.error(LogUtil.encode(exceptionstr));
 	}
 }

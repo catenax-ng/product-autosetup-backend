@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -45,12 +45,10 @@ import org.eclipse.tractusx.autosetup.kubeapps.proxy.KubeAppManageProxy;
 import org.eclipse.tractusx.autosetup.manager.AutoSetupTriggerManager;
 import org.eclipse.tractusx.autosetup.manager.EmailManager;
 import org.eclipse.tractusx.autosetup.manager.InputConfigurationManager;
-import org.eclipse.tractusx.autosetup.manager.ManualDFTPackageUpdateManager;
 import org.eclipse.tractusx.autosetup.mapper.AutoSetupRequestMapper;
 import org.eclipse.tractusx.autosetup.mapper.AutoSetupTriggerMapper;
 import org.eclipse.tractusx.autosetup.model.AutoSetupRequest;
 import org.eclipse.tractusx.autosetup.model.Customer;
-import org.eclipse.tractusx.autosetup.model.DFTUpdateRequest;
 import org.eclipse.tractusx.autosetup.model.SelectedTools;
 import org.eclipse.tractusx.autosetup.repository.AutoSetupTriggerEntryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,21 +67,24 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AutoSetupOrchitestratorService {
 
+	private static final String CCEMAIL = "ccemail";
+	private static final String TEST_SERVICE_URL = "testServiceURL";
+	private static final String CONNECTOR_TEST_RESULT = "connectorTestResult";
 	private static final String EMAIL_SENT_SUCCESSFULLY = "Email sent successfully";
 	private static final String TOEMAIL = "toemail";
 	private static final String ORGNAME = "orgname";
 	public static final String TARGET_NAMESPACE = "targetNamespace";
-	public static final String DFT_FRONTEND_URL = "dftFrontEndUrl";
-	public static final String DFT_BACKEND_URL = "dftBackEndUrl";
+	public static final String SDE_FRONTEND_URL = "sdeFrontEndUrl";
+	public static final String SDE_BACKEND_URL = "sdeBackEndUrl";
 
 	private final KubeAppManageProxy kubeAppManageProxy;
 	private final AutoSetupTriggerManager autoSetupTriggerManager;
-
+	private final AutoSetupRequestMapper customerDetailsMapper;
 	private final EDCConnectorWorkFlow edcConnectorWorkFlow;
-	private final DFTAppWorkFlow dftWorkFlow;
+	private final SDEAppWorkFlow sdeWorkFlow;
+	private final DTAppWorkFlow dtAppWorkFlow;
 
 	private final InputConfigurationManager inputConfigurationManager;
-	private final ManualDFTPackageUpdateManager manualDFTPackageUpdateManager;
 
 	private final AutoSetupTriggerMapper autoSetupTriggerMapper;
 	private final AutoSetupRequestMapper autoSetupRequestMapper;
@@ -102,9 +103,15 @@ public class AutoSetupOrchitestratorService {
 
 	@Value("${portal.email.address}")
 	private String portalEmail;
-
+	
+	@Value("${mail.replyto.address}")
+	private String mailReplytoAddress;
+	
 	@Value("${manual.update}")
 	private boolean manualUpdate;
+
+	@Value("${managed.dt-registry:true}")
+	private boolean managedDtRegistry;
 
 	public String getAllInstallPackages() {
 		return kubeAppManageProxy.getAllInstallPackages();
@@ -114,104 +121,112 @@ public class AutoSetupOrchitestratorService {
 
 	public String createPackage(AutoSetupRequest autoSetupRequest) {
 
-		List<AppServiceCatalogAndCustomerMapping> appCatalogDetails = verifyIsServiceValid(autoSetupRequest);
-
 		String uuID = UUID.randomUUID().toString();
 
-		String organizationName = autoSetupRequest.getCustomer().getOrganizationName();
+		Map<String, String> inputConfiguration = inputConfigurationManager.prepareInputConfiguration(autoSetupRequest,
+				uuID);
 
-		AutoSetupTriggerEntry checkTrigger = autoSetupTriggerManager
-				.isAutoSetupAvailableforOrgnizationName(organizationName);
+		String targetNamespace = inputConfiguration.get(TARGET_NAMESPACE);
 
-		if (checkTrigger != null) {
-			throw new ValidationException("Auto setup already exist for " + organizationName
-					+ ", use execution id to update it " + checkTrigger.getTriggerId());
+		AutoSetupTriggerEntry trigger = autoSetupTriggerManager.createTrigger(autoSetupRequest, CREATE, uuID,
+				targetNamespace);
+		try {
+			List<AppServiceCatalogAndCustomerMapping> appCatalogDetails = verifyIsServiceValid(autoSetupRequest);
+
+			Runnable runnable = () -> {
+
+				if (!checkNamespaceisExist(targetNamespace)) {
+					kubeAppManageProxy.createNamespace(targetCluster, targetNamespace);
+				}
+
+				proceessTrigger(autoSetupRequest, CREATE, trigger, inputConfiguration, appCatalogDetails);
+			};
+
+			new Thread(runnable).start();
+		} catch (Exception e) {
+			log.error("Error in package creation process start: " + e.getMessage());
+			trigger.setStatus(TriggerStatusEnum.FAILED.name());
+			trigger.setRemark(e.getMessage());
+			autoSetupTriggerManager.saveTriggerUpdate(trigger);
+			throw e;
 		}
-
-		Runnable runnable = () -> {
-
-			Map<String, String> inputConfiguration = inputConfigurationManager
-					.prepareInputConfiguration(autoSetupRequest, uuID);
-
-			String targetNamespace = inputConfiguration.get(TARGET_NAMESPACE);
-
-			AutoSetupTriggerEntry trigger = autoSetupTriggerManager.createTrigger(autoSetupRequest, CREATE, uuID,
-					targetNamespace);
-
-			if (!checkNamespaceisExist(targetNamespace)) {
-				kubeAppManageProxy.createNamespace(targetCluster, targetNamespace);
-			}
-
-			proceessTrigger(autoSetupRequest, CREATE, trigger, inputConfiguration, appCatalogDetails);
-		};
-
-		new Thread(runnable).start();
-
 		return uuID;
 	}
 
 	public String updatePackage(AutoSetupRequest autoSetupRequest, String triggerId) {
 
-		List<AppServiceCatalogAndCustomerMapping> appCatalogDetails = verifyIsServiceValid(autoSetupRequest);
-
 		AutoSetupTriggerEntry trigger = autoSetupTriggerEntryRepository.findAllByTriggerId(triggerId);
 
 		if (trigger != null) {
 
-			Map<String, String> inputConfiguration = inputConfigurationManager
-					.prepareInputConfiguration(autoSetupRequest, triggerId);
+			try {
+				List<AppServiceCatalogAndCustomerMapping> appCatalogDetails = verifyIsServiceValid(autoSetupRequest);
 
-			Runnable runnable = () -> {
+				Map<String, String> inputConfiguration = inputConfigurationManager
+						.prepareInputConfiguration(autoSetupRequest, triggerId);
 
-				trigger.setAutosetupResult("");
-				trigger.setTriggerType(DELETE.name());
-				trigger.setStatus(INPROGRESS.name());
+				Runnable runnable = () -> {
 
-				autoSetupTriggerManager.saveTriggerUpdate(trigger);
+					trigger.setTriggerType(DELETE.name());
+					trigger.setStatus(INPROGRESS.name());
 
-				String targetNamespace = inputConfiguration.get(TARGET_NAMESPACE);
+					autoSetupTriggerManager.saveTriggerUpdate(trigger);
 
-				String existingNamespace = trigger.getAutosetupTenantName();
+					String targetNamespace = inputConfiguration.get(TARGET_NAMESPACE);
 
-				if (checkNamespaceisExist(existingNamespace)) {
+					String existingNamespace = trigger.getAutosetupTenantName();
 
-					inputConfiguration.put(TARGET_NAMESPACE, existingNamespace);
+					if (checkNamespaceisExist(existingNamespace)) {
 
-					processDeleteTrigger(trigger, inputConfiguration);
+						updateSubmethod(trigger, inputConfiguration, targetNamespace, existingNamespace);
 
-					inputConfiguration.put(TARGET_NAMESPACE, targetNamespace);
-					trigger.setAutosetupTenantName(targetNamespace);
-
-					if (!existingNamespace.equals(targetNamespace) && !checkNamespaceisExist(targetNamespace)) {
+					} else {
+						trigger.setAutosetupTenantName(targetNamespace);
 						kubeAppManageProxy.createNamespace(targetCluster, targetNamespace);
 					}
-					try {
-						log.info("Waiting after deleteing all package for recreate");
-						Thread.sleep(15000);
-					} catch (InterruptedException e) {
-						
-						Thread.currentThread().interrupt();
-					}
 
-				} else {
-					trigger.setAutosetupTenantName(targetNamespace);
-					kubeAppManageProxy.createNamespace(targetCluster, targetNamespace);
-				}
+					AutoSetupTriggerEntry updatedtrigger = autoSetupTriggerManager
+							.updateTriggerAutoSetupRequest(autoSetupRequest, trigger, UPDATE);
 
-				AutoSetupTriggerEntry updatedtrigger = autoSetupTriggerManager
-						.updateTriggerAutoSetupRequest(autoSetupRequest, trigger, UPDATE);
+					proceessTrigger(autoSetupRequest, CREATE, updatedtrigger, inputConfiguration, appCatalogDetails);
 
-				proceessTrigger(autoSetupRequest, CREATE, updatedtrigger, inputConfiguration, appCatalogDetails);
+				};
 
-			};
-
-			new Thread(runnable).start();
+				new Thread(runnable).start();
+			} catch (Exception e) {
+				log.error("Error in package update process start :" + e.getMessage());
+				trigger.setStatus(TriggerStatusEnum.FAILED.name());
+				trigger.setRemark(e.getMessage());
+				trigger.setAutosetupRequest(customerDetailsMapper.fromCustomer(autoSetupRequest));
+				autoSetupTriggerManager.saveTriggerUpdate(trigger);
+				throw e;
+			}
 
 		} else {
 			throw new NoDataFoundException("No Valid Auto setup found for " + triggerId + " to update");
 		}
 
 		return triggerId;
+	}
+
+	private void updateSubmethod(AutoSetupTriggerEntry trigger, Map<String, String> inputConfiguration,
+			String targetNamespace, String existingNamespace) {
+		inputConfiguration.put(TARGET_NAMESPACE, existingNamespace);
+
+		processDeleteTrigger(trigger, inputConfiguration);
+
+		inputConfiguration.put(TARGET_NAMESPACE, targetNamespace);
+		trigger.setAutosetupTenantName(targetNamespace);
+
+		if (!existingNamespace.equals(targetNamespace) && !checkNamespaceisExist(targetNamespace)) {
+			kubeAppManageProxy.createNamespace(targetCluster, targetNamespace);
+		}
+		try {
+			log.info("Waiting after deleteing all package for recreate");
+			Thread.sleep(15000);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	private List<AppServiceCatalogAndCustomerMapping> verifyIsServiceValid(AutoSetupRequest autoSetupRequest) {
@@ -283,15 +298,21 @@ public class AutoSetupOrchitestratorService {
 
 					switch (selectedTool.getTool()) {
 
-					case DFT_WITH_EDC:
+					case SDE_WITH_EDC_TRACTUS:
 
-						executeDFTWithEDC(autoSetupRequest, action, trigger, inputConfiguration, customer,
+						executeSDEWithEDCTractus(autoSetupRequest, action, trigger, inputConfiguration, customer,
 								selectedTool);
 
 						break;
-					case EDC:
 
-						executeEDC(autoSetupRequest, action, trigger, inputConfiguration, selectedTool);
+					case EDC_TRACTUS:
+
+						executeEDCTractus(autoSetupRequest, action, trigger, inputConfiguration, selectedTool);
+
+						break;
+					case DT_REGISTRY:
+
+						dtDeployment(autoSetupRequest.getCustomer(), action, trigger, inputConfiguration, selectedTool);
 
 						break;
 					default:
@@ -305,18 +326,20 @@ public class AutoSetupOrchitestratorService {
 		} catch (Exception e) {
 
 			log.error("Error in package creation " + e.getMessage());
-			trigger.setAutosetupResult("");
 			trigger.setStatus(TriggerStatusEnum.FAILED.name());
 			trigger.setRemark(e.getMessage());
+			generateNotification(autoSetupRequest.getCustomer(), "Error in autosetup execution - "+trigger.getTriggerId());
 		}
 
 		LocalDateTime now = LocalDateTime.now();
 		trigger.setModifiedTimestamp(now.toString());
+		trigger.setInputConfiguration(autoSetupTriggerMapper.fromMaptoStr(List.of(inputConfiguration)));
 
 		autoSetupTriggerManager.saveTriggerUpdate(trigger);
 	}
 
-	private void executeEDC(AutoSetupRequest autoSetupRequest, AppActions action, AutoSetupTriggerEntry trigger,
+	
+	private void executeEDCTractus(AutoSetupRequest autoSetupRequest, AppActions action, AutoSetupTriggerEntry trigger,
 			Map<String, String> inputConfiguration, SelectedTools selectedTool) {
 
 		String label = selectedTool.getLabel();
@@ -326,6 +349,11 @@ public class AutoSetupOrchitestratorService {
 				action, inputConfiguration, trigger);
 		inputConfiguration.putAll(edcOutput);
 
+		edcDeployemnt(autoSetupRequest, trigger, edcOutput);
+	}
+
+	private void edcDeployemnt(AutoSetupRequest autoSetupRequest, AutoSetupTriggerEntry trigger,
+			Map<String, String> edcOutput) {
 		String json = autoSetupTriggerMapper.fromMaptoStr(extractEDCResultMap(edcOutput));
 
 		trigger.setAutosetupResult(json);
@@ -337,15 +365,27 @@ public class AutoSetupOrchitestratorService {
 		Map<String, Object> emailContent = new HashMap<>();
 		emailContent.put(ORGNAME, customer.getOrganizationName());
 		emailContent.putAll(edcOutput);
-		emailContent.put(TOEMAIL, customer.getEmail());
-		emailContent.put("ccemail", portalEmail);
-
-		emailManager.sendEmail(emailContent, "EDC Application Activited Successfully", "edc_success_activate.html");
-		log.info(EMAIL_SENT_SUCCESSFULLY);
+		
+		
+		String connectivityTestStr= edcOutput.get(CONNECTOR_TEST_RESULT);
+		
+		boolean isTestConnectivityTestSuccess = connectivityTestStr!=null && connectivityTestStr.contains("consumer and provider");
+		
+		if (isTestConnectivityTestSuccess) {
+			emailContent.put(TOEMAIL, customer.getEmail());
+			emailContent.put(CCEMAIL, portalEmail);
+			emailManager.sendEmail(emailContent, "EDC Application Activited Successfully", "edc_success_activate.html");
+			log.info(EMAIL_SENT_SUCCESSFULLY);
+		}else {
+			generateNotification(customer, "EDC Application Deployed Successfully");
+		}
+		
+		
 	}
 
-	private void executeDFTWithEDC(AutoSetupRequest autoSetupRequest, AppActions action, AutoSetupTriggerEntry trigger,
-			Map<String, String> inputConfiguration, Customer customer, SelectedTools selectedTool) {
+	private void executeSDEWithEDCTractus(AutoSetupRequest autoSetupRequest, AppActions action,
+			AutoSetupTriggerEntry trigger, Map<String, String> inputConfiguration, Customer customer,
+			SelectedTools selectedTool) {
 
 		String label = selectedTool.getLabel();
 		selectedTool.setLabel("edc-" + label);
@@ -354,36 +394,79 @@ public class AutoSetupOrchitestratorService {
 				action, inputConfiguration, trigger);
 		inputConfiguration.putAll(edcOutput);
 
-		selectedTool.setLabel("dft-" + label);
-		Map<String, String> map = dftWorkFlow.getWorkFlow(autoSetupRequest.getCustomer(), selectedTool, action,
+		String json = autoSetupTriggerMapper.fromMaptoStr(extractEDCResultMap(inputConfiguration));
+		trigger.setAutosetupResult(json);
+
+		sdeDeployment(autoSetupRequest, action, trigger, inputConfiguration, customer, selectedTool, label);
+
+	}
+
+	private void dtDeployment(Customer customer, AppActions action, AutoSetupTriggerEntry trigger,
+			Map<String, String> inputConfiguration, SelectedTools selectedTool) {
+
+		String label = selectedTool.getLabel();
+		selectedTool.setLabel("dt-" + label);
+
+		dtAppWorkFlow.getWorkFlow(customer, selectedTool, action, inputConfiguration, trigger);
+
+		String json = autoSetupTriggerMapper.fromMaptoStr(extractDTResultMap(inputConfiguration));
+		trigger.setAutosetupResult(json);
+
+		trigger.setStatus(TriggerStatusEnum.SUCCESS.name());
+
+		// Send an email
+		Map<String, Object> emailContent = new HashMap<>();
+		emailContent.put(ORGNAME, customer.getOrganizationName());
+		emailContent.putAll(inputConfiguration);
+		emailContent.put(TOEMAIL, customer.getEmail());
+		emailContent.put(CCEMAIL, portalEmail);
+
+		emailManager.sendEmail(emailContent, "DT registry Application Activited Successfully",
+				"dt_success_template.html");
+		log.info(EMAIL_SENT_SUCCESSFULLY);
+
+	}
+
+	private void sdeDeployment(AutoSetupRequest autoSetupRequest, AppActions action, AutoSetupTriggerEntry trigger,
+			Map<String, String> inputConfiguration, Customer customer, SelectedTools selectedTool, String label) {
+
+		if (managedDtRegistry) {
+			selectedTool.setLabel("dt-" + label);
+			dtAppWorkFlow.getWorkFlow(customer, selectedTool, action, inputConfiguration, trigger);
+
+			String json = autoSetupTriggerMapper.fromMaptoStr(extractDependantAppResult(inputConfiguration));
+			trigger.setAutosetupResult(json);
+		}
+
+		selectedTool.setLabel("sde-" + label);
+		Map<String, String> map = sdeWorkFlow.getWorkFlow(autoSetupRequest.getCustomer(), selectedTool, action,
 				inputConfiguration, trigger);
 
-		if (manualUpdate) {
-			// Send an email
-			Map<String, Object> emailContent = new HashMap<>();
+		Map<String, Object> emailContent = new HashMap<>();
+		emailContent.put(SDE_FRONTEND_URL, map.get(SDE_FRONTEND_URL));
+		emailContent.put(SDE_BACKEND_URL, map.get(SDE_BACKEND_URL));
+		emailContent.put(CONNECTOR_TEST_RESULT, map.get(CONNECTOR_TEST_RESULT));
+		emailContent.put(TEST_SERVICE_URL, map.get(TEST_SERVICE_URL));
+		emailContent.putAll(map);
 
-			emailContent.put("helloto", "Team");
-			emailContent.put(ORGNAME, customer.getOrganizationName());
-			emailContent.put(DFT_FRONTEND_URL, map.get(DFT_FRONTEND_URL));
-			emailContent.put(DFT_BACKEND_URL, map.get(DFT_BACKEND_URL));
-			emailContent.put(TOEMAIL, portalEmail);
-
-			// End of email sending code
-			emailManager.sendEmail(emailContent, "DFT Application Deployed Successfully", "success.html");
-			log.info(EMAIL_SENT_SUCCESSFULLY);
+		String connectivityTestStr= inputConfiguration.get(CONNECTOR_TEST_RESULT);
+		boolean isTestConnectivityTestSuccess = connectivityTestStr!=null && connectivityTestStr.contains("consumer and provider");
+		
+		if (manualUpdate || !isTestConnectivityTestSuccess) {
+			
+			generateNotification(customer, "SDE Application Deployed Successfully");
 			trigger.setStatus(TriggerStatusEnum.MANUAL_UPDATE_PENDING.name());
 
 		} else {
 
 			trigger.setStatus(TriggerStatusEnum.SUCCESS.name());
-			// Send an email
-			Map<String, Object> emailContent = new HashMap<>();
-			emailContent.put(ORGNAME, customer.getOrganizationName());
-			emailContent.put(DFT_FRONTEND_URL, map.get(DFT_FRONTEND_URL));
-			emailContent.put(TOEMAIL, customer.getEmail());
-			emailContent.put("ccemail", portalEmail);
 
-			emailManager.sendEmail(emailContent, "DFT Application Activited Successfully", "success_activate.html");
+			// Send an email
+			emailContent.put(ORGNAME, customer.getOrganizationName());
+			emailContent.put(TOEMAIL, customer.getEmail());
+			emailContent.put(CCEMAIL, portalEmail);
+
+			emailManager.sendEmail(emailContent, "SDE Application Activited Successfully", "success_activate.html");
 			log.info(EMAIL_SENT_SUCCESSFULLY);
 			// End of email sending code
 
@@ -392,9 +475,20 @@ public class AutoSetupOrchitestratorService {
 		String json = autoSetupTriggerMapper.fromMaptoStr(extractResultMap(map));
 
 		trigger.setAutosetupResult(json);
-
+	}
+	
+	@SneakyThrows
+	private void generateNotification(Customer customer, String emailSubject) {
+		
+		Map<String, Object> emailContent = new HashMap<>();
+		emailContent.put(ORGNAME, customer.getOrganizationName());
+		emailContent.put(TOEMAIL, mailReplytoAddress);
+		emailContent.put(CCEMAIL, portalEmail);
+		emailManager.sendEmail(emailContent, emailSubject, "success.html");
+		log.info(EMAIL_SENT_SUCCESSFULLY);
 	}
 
+	
 	private void processDeleteTrigger(AutoSetupTriggerEntry trigger, Map<String, String> inputConfiguration) {
 
 		if (trigger != null && trigger.getAutosetupRequest() != null) {
@@ -421,25 +515,44 @@ public class AutoSetupOrchitestratorService {
 
 		List<SelectedTools> selectedTools = getToolInfo(appCatalogDetails);
 
+		List<Map<String, String>> autosetupResult = autoSetupTriggerMapper
+				.fromJsonStrToMap(trigger.getAutosetupResult());
+
+		autosetupResult.forEach(inputConfiguration::putAll);
+
 		for (SelectedTools selectedTool : selectedTools) {
 
 			String label = "";
 			switch (selectedTool.getTool()) {
 
-			case DFT_WITH_EDC:
+			case SDE_WITH_EDC_TRACTUS:
 
 				label = selectedTool.getLabel();
+
 				selectedTool.setLabel("edc-" + label);
 				edcConnectorWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
-				selectedTool.setLabel("dft-" + label);
-				dftWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
+
+				selectedTool.setLabel("dt-" + label);
+				dtAppWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
+
+				selectedTool.setLabel("sde-" + label);
+				sdeWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
 
 				break;
-			case EDC:
+
+			case EDC_TRACTUS:
 
 				label = selectedTool.getLabel();
 				selectedTool.setLabel("edc-" + label);
 				edcConnectorWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
+
+				break;
+
+			case DT_REGISTRY:
+
+				label = selectedTool.getLabel();
+				selectedTool.setLabel("dt-" + label);
+				dtAppWorkFlow.deletePackageWorkFlow(selectedTool, inputConfiguration, trigger);
 
 				break;
 			default:
@@ -454,67 +567,27 @@ public class AutoSetupOrchitestratorService {
 		log.info("All Packages deleted successfully!!!!");
 	}
 
-	@SneakyThrows
-	public String updateDftPackage(String triggerId, DFTUpdateRequest dftUpdateRequest) {
-
-		AutoSetupTriggerEntry trigger = autoSetupTriggerEntryRepository.findAllByTriggerId(triggerId);
-
-		if (trigger != null && TriggerStatusEnum.MANUAL_UPDATE_PENDING.name().equals(trigger.getStatus())) {
-
-			AutoSetupRequest autosetupRequest = autoSetupRequestMapper.fromStr(trigger.getAutosetupRequest());
-
-			List<AppServiceCatalogAndCustomerMapping> appCatalogDetails = verifyIsServiceValid(autosetupRequest);
-
-			Map<String, String> inputConfiguration = inputConfigurationManager
-					.prepareInputConfiguration(autosetupRequest, triggerId);
-
-			Runnable runnable = () -> {
-
-				try {
-					trigger.setTriggerType(UPDATE.name());
-					trigger.setStatus(INPROGRESS.name());
-					autoSetupTriggerManager.saveTriggerUpdate(trigger);
-
-					Map<String, String> output = manualDFTPackageUpdateManager.manualPackageUpdate(autosetupRequest,
-							dftUpdateRequest, inputConfiguration, trigger, appCatalogDetails);
-
-					String json = autoSetupTriggerMapper.fromMaptoStr(extractResultMap(output));
-
-					trigger.setAutosetupResult(json);
-
-					trigger.setStatus(TriggerStatusEnum.SUCCESS.name());
-
-				} catch (Exception e) {
-
-					log.error("Error in manual package updation " + e.getMessage());
-					trigger.setStatus(TriggerStatusEnum.FAILED.name());
-					trigger.setRemark(e.getMessage());
-					trigger.setAutosetupResult("");
-				}
-
-				LocalDateTime now = LocalDateTime.now();
-				trigger.setModifiedTimestamp(now.toString());
-				autoSetupTriggerManager.saveTriggerUpdate(trigger);
-
-			};
-			new Thread(runnable).start();
-
-			return trigger.getTriggerId();
-		} else {
-			throw new NoDataFoundException("Autosetup entry not present for manual update");
-		}
-
-	}
-
 	private List<Map<String, String>> extractResultMap(Map<String, String> outputMap) {
 
 		List<Map<String, String>> processResult = new ArrayList<>();
 
 		Map<String, String> dft = new ConcurrentHashMap<>();
-		dft.put("name", "DFT");
-		dft.put(DFT_FRONTEND_URL, outputMap.get(DFT_FRONTEND_URL));
-		dft.put(DFT_BACKEND_URL, outputMap.get(DFT_BACKEND_URL));
+		dft.put("name", "SDE");
+		dft.put(SDE_FRONTEND_URL, outputMap.get(SDE_FRONTEND_URL));
+		dft.put(SDE_BACKEND_URL, outputMap.get(SDE_BACKEND_URL));
 		processResult.add(dft);
+
+		processResult.addAll(extractDependantAppResult(outputMap));
+
+		return processResult;
+	}
+
+	private List<Map<String, String>> extractDependantAppResult(Map<String, String> outputMap) {
+
+		List<Map<String, String>> processResult = new ArrayList<>();
+
+		Map<String, String> dt = extractDTResultMap(outputMap).get(0);
+		processResult.add(dt);
 
 		Map<String, String> edc = extractEDCResultMap(outputMap).get(0);
 		processResult.add(edc);
@@ -533,14 +606,35 @@ public class AutoSetupOrchitestratorService {
 		edc.put("dataPlanePublicEndpoint", outputMap.get("dataPlanePublicEndpoint"));
 		edc.put("edcApiKey", outputMap.get("edcApiKey"));
 		edc.put("edcApiKeyValue", outputMap.get("edcApiKeyValue"));
+		edc.put("connectorId", findValueInMap(outputMap, "connectorId"));
 		processResult.add(edc);
 
 		return processResult;
 	}
 
-	private boolean checkNamespaceisExist(String targetNamespace) {
+	private String findValueInMap(Map<String, String> outputMap, String key) {
+		if (outputMap.get(key) != null) {
+			return outputMap.get(key);
+		}
+		return "";
+	}
+
+	private List<Map<String, String>> extractDTResultMap(Map<String, String> outputMap) {
+
+		List<Map<String, String>> processResult = new ArrayList<>();
+
+		Map<String, String> dt = new ConcurrentHashMap<>();
+		dt.put("name", "DT");
+		dt.put("dtregistryUrl", outputMap.get("dtregistryUrl"));
+		dt.put("idpClientId", outputMap.get("idpClientId"));
+		processResult.add(dt);
+
+		return processResult;
+	}
+
+	public boolean checkNamespaceisExist(String targetNamespace) {
 
 		String namespacesResult = kubeAppManageProxy.checkNamespace(targetCluster, targetNamespace);
-		return namespacesResult.contains("true");
+		return namespacesResult != null && namespacesResult.contains("true");
 	}
 }

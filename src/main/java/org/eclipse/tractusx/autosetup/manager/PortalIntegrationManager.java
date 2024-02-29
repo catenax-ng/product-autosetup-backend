@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -23,18 +23,29 @@ package org.eclipse.tractusx.autosetup.manager;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
+import org.eclipse.tractusx.autosetup.constant.TriggerStatusEnum;
+import org.eclipse.tractusx.autosetup.entity.AutoSetupTriggerDetails;
+import org.eclipse.tractusx.autosetup.entity.AutoSetupTriggerEntry;
+import org.eclipse.tractusx.autosetup.exception.ServiceException;
+import org.eclipse.tractusx.autosetup.model.Customer;
+import org.eclipse.tractusx.autosetup.model.SelectedTools;
 import org.eclipse.tractusx.autosetup.portal.model.ClientInfo;
 import org.eclipse.tractusx.autosetup.portal.model.ServiceInstanceResultRequest;
 import org.eclipse.tractusx.autosetup.portal.model.ServiceInstanceResultResponse;
 import org.eclipse.tractusx.autosetup.portal.model.TechnicalUserInfo;
 import org.eclipse.tractusx.autosetup.portal.proxy.PortalIntegrationProxy;
-import org.keycloak.OAuth2Constants;
+import org.eclipse.tractusx.autosetup.utility.LogUtil;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.support.RetrySynchronizationManager;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +56,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PortalIntegrationManager {
 
 	private final PortalIntegrationProxy portalIntegrationProxy;
+
+	private final AutoSetupTriggerManager autoSetupTriggerManager;
 
 	@Value("${portal.url}")
 	private URI portalUrl;
@@ -58,59 +71,88 @@ public class PortalIntegrationManager {
 	@Value("${portal.keycloak.tokenURI}")
 	private URI tokenURI;
 
-	@Value("${portal.dft.keycloak.realm}")
-	private String keycloakRealm;
+	@Retryable(retryFor = {
+			ServiceException.class }, maxAttemptsExpression = "${retry.maxAttempts}", backoff = @Backoff(delayExpression = "#{${retry.backOffDelay}}"))
+	public Map<String, String> postServiceInstanceResultAndGetTenantSpecs(Customer customerDetails, SelectedTools tool,
+			Map<String, String> inputData, AutoSetupTriggerEntry triger) {
 
-	@Value("${portal.dft.keycloak.clientId}")
-	private String keycloakClientId;
+		AutoSetupTriggerDetails autoSetupTriggerDetails = AutoSetupTriggerDetails.builder()
+				.id(UUID.randomUUID().toString()).step("PostServiceInstanceResultAndGetTenantSpecs").build();
+		ServiceInstanceResultResponse serviceInstanceResultResponse = null;
+		try {
 
-	@Value("${portal.dft.keycloak.url}")
-	private String keycloakUrl;
+			String packageName = tool.getLabel();
+			String tenantName = customerDetails.getOrganizationName();
 
-	@Value("${portal.dft.digitalTwinUrl}")
-	private String digitalTwinUrl;
+			log.info(LogUtil.encode(tenantName) + "-" + LogUtil.encode(packageName)
+					+ "-PostServiceInstanceResultAndGetTenantSpecs creating");
+			String dnsName = inputData.get("dnsName");
+			String dnsNameURLProtocol = inputData.get("dnsNameURLProtocol");
+			String subscriptionId = inputData.get("subscriptionId");
 
-	@Value("${portal.dft.digitalTwinAuthUrl}")
-	private String digitalTwinAuthUrl;
+			String applicationURL = dnsNameURLProtocol + "://" + dnsName;
+			inputData.put("applicationURL", applicationURL);
 
-	@SneakyThrows
-	public Map<String, String> postServiceInstanceResultAndGetTenantSpecs(Map<String, String> inputData) {
+			Map<String, String> header = new HashMap<>();
+			header.put("Authorization", "Bearer " + getKeycloakToken());
 
-		String dftFrontendURL = inputData.get("dftFrontEndUrl");
-		String subscriptionId = inputData.get("subscriptionId");
+			ServiceInstanceResultRequest serviceInstanceResultRequest = ServiceInstanceResultRequest.builder()
+					.requestId(subscriptionId).offerUrl(applicationURL).build();
 
-		Map<String, String> header = new HashMap<>();
-		header.put("Authorization", "Bearer " + getKeycloakToken());
+			if ("app".equalsIgnoreCase(tool.getType()))
+				serviceInstanceResultResponse = portalIntegrationProxy.postAppInstanceResultAndGetTenantSpecs(portalUrl,
+						header, serviceInstanceResultRequest);
+			else
+				serviceInstanceResultResponse = portalIntegrationProxy
+						.postServiceInstanceResultAndGetTenantSpecs(portalUrl, header, serviceInstanceResultRequest);
 
-		ServiceInstanceResultRequest serviceInstanceResultRequest = ServiceInstanceResultRequest.builder()
-				.requestId(subscriptionId).offerUrl(dftFrontendURL).build();
+			if (serviceInstanceResultResponse != null) {
 
-		ServiceInstanceResultResponse serviceInstanceResultResponse = portalIntegrationProxy
-				.postServiceInstanceResultAndGetTenantSpecs(portalUrl, header, serviceInstanceResultRequest);
+				TechnicalUserInfo technicalUserInfo = serviceInstanceResultResponse.getTechnicalUserInfo();
+				if (technicalUserInfo != null) {
+					inputData.put("keycloakAuthenticationClientId", technicalUserInfo.getTechnicalClientId());
+					inputData.put("keycloakAuthenticationClientSecret", technicalUserInfo.getTechnicalUserSecret());
+				}
 
-		if (serviceInstanceResultResponse != null) {
-			inputData.put("digital-twins.hostname", digitalTwinUrl);
-			inputData.put("digital-twins.authentication.url", digitalTwinAuthUrl);
-
-			TechnicalUserInfo technicalUserInfo = serviceInstanceResultResponse.getTechnicalUserInfo();
-			if (technicalUserInfo != null) {
-				inputData.put("digital-twins.authentication.clientId", technicalUserInfo.getTechnicalClientId());
-				inputData.put("digital-twins.authentication.clientSecret", technicalUserInfo.getTechnicalUserSecret());
+				ClientInfo clientInfo = serviceInstanceResultResponse.getClientInfo();
+				if (clientInfo != null) {
+					inputData.put("keycloakResourceClient", clientInfo.getClientId());
+				}
+				log.info(LogUtil.encode(tenantName) + "-" + LogUtil.encode(packageName)
+						+ "-PostServiceInstanceResultAndGetTenantSpecs created");
+			} else {
+				log.error("Error in request process with portal");
 			}
+		} catch (FeignException e) {
 
-			inputData.put("dftkeycloakurl", keycloakUrl);
-			inputData.put("dftcloakrealm", keycloakRealm);
+			log.error("PortalIntegrationManager FeignException failed retry attempt: : {}",
+					RetrySynchronizationManager.getContext().getRetryCount() + 1);
+			log.error("RequestBody: " + e.request());
+			log.error("ResponseBody: " + e.contentUTF8());
 
-			ClientInfo clientInfo = serviceInstanceResultResponse.getClientInfo();
+			autoSetupTriggerDetails.setStatus(TriggerStatusEnum.FAILED.name());
+			autoSetupTriggerDetails.setRemark(e.contentUTF8());
+			throw new ServiceException("PortalIntegrationManager Oops! We have an FeignException - " + e.contentUTF8());
 
-			if (clientInfo != null) {
-				inputData.put("dftbackendkeycloakclientid", clientInfo.getClientId());
-				inputData.put("dftfrontendkeycloakclientid", clientInfo.getClientId());
-			}
-		} else {
-			log.error("Error in request process with portal");
+		} catch (Exception ex) {
+
+			log.error("PortalIntegrationManager Exception failed retry attempt: : {}",
+					RetrySynchronizationManager.getContext().getRetryCount() + 1);
+
+			if (serviceInstanceResultResponse != null) {
+				String msg = "PortalIntegrationManager failed with details:"
+						+ serviceInstanceResultResponse.toJsonString();
+				log.error(msg);
+				autoSetupTriggerDetails.setRemark(msg);
+			} else
+				autoSetupTriggerDetails.setRemark(ex.getMessage());
+
+			autoSetupTriggerDetails.setStatus(TriggerStatusEnum.FAILED.name());
+
+			throw new ServiceException("PortalIntegrationManager Oops! We have an exception - " + ex.getMessage());
+		} finally {
+			autoSetupTriggerManager.saveTriggerDetails(autoSetupTriggerDetails, triger);
 		}
-
 		return inputData;
 	}
 
@@ -118,9 +160,9 @@ public class PortalIntegrationManager {
 	private String getKeycloakToken() {
 
 		MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-		body.add(OAuth2Constants.GRANT_TYPE, OAuth2Constants.CLIENT_CREDENTIALS);
-		body.add(OAuth2Constants.CLIENT_ID, clientId);
-		body.add(OAuth2Constants.CLIENT_SECRET, clientSecret);
+		body.add("grant_type", "client_credentials");
+		body.add("client_id", clientId);
+		body.add("client_secret", clientSecret);
 		var resultBody = portalIntegrationProxy.readAuthToken(tokenURI, body);
 
 		if (resultBody != null) {
