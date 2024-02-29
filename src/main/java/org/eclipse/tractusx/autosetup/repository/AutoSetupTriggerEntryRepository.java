@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -29,6 +29,6 @@ public interface AutoSetupTriggerEntryRepository extends JpaRepository<AutoSetup
 	@Query(value = "SELECT * FROM auto_setup_trigger_tbl a WHERE a.trigger_id = ?1", nativeQuery = true)
 	AutoSetupTriggerEntry findAllByTriggerId(String triggerId);
 
-	AutoSetupTriggerEntry findTop1ByOrganizationName(String organizationName);
+	AutoSetupTriggerEntry findTop1ByOrganizationNameAndServiceId(String organizationName, String serviceId);
 
 }

@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -19,10 +19,15 @@
  ********************************************************************************/
 package org.eclipse.tractusx.autosetup.manager;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.io.IOException;
+import java.security.cert.CertificateException;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.commons.codec.Resources;
 import org.eclipse.tractusx.autosetup.constant.ToolType;
-import org.eclipse.tractusx.autosetup.manager.AutoSetupTriggerManager;
-import org.eclipse.tractusx.autosetup.manager.CertificateManager;
 import org.eclipse.tractusx.autosetup.model.Customer;
 import org.eclipse.tractusx.autosetup.model.SelectedTools;
 import org.eclipse.tractusx.autosetup.utility.Certutil;
@@ -32,13 +37,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.io.IOException;
-import java.security.cert.CertificateException;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -64,8 +62,8 @@ class CertificateManagerTest {
                 .build();
 
         SelectedTools selectedTools = SelectedTools.builder()
-                .tool(ToolType.DFT)
-                .label("DFT")
+                .tool(ToolType.SDE_WITH_EDC_TRACTUS)
+                .label("SDE")
                 .build();
         Map<String, String> mockInputMap = new HashMap<>();
         mockInputMap.put("bpnNumber","BPN1234567");

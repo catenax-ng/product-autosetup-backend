@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.eclipse.tractusx.autosetup.entity.AutoSetupTriggerEntry;
-import org.eclipse.tractusx.autosetup.manager.InputConfigurationManager;
 import org.eclipse.tractusx.autosetup.model.AutoSetupRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -60,7 +59,7 @@ class InputConfigurationManagerTest {
                 "        \"bpnNumber\": \"BPN12345611\",\n" +
                 "        \"role\": \"recycler\",\n" +
                 "        \"subscriptionId\": \"DAS-D234\",\n" +
-                "        \"serviceId\": \"T-SYSTEM-DFT-EDC\"\n" +
+                "        \"serviceId\": \"T-SYSTEM-SDE-EDC\"\n" +
                 "    }\n" +
                 "}";
         String uuID = UUID.randomUUID().toString();

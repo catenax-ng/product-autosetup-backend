@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -27,9 +27,6 @@ import java.util.Map;
 
 import org.eclipse.tractusx.autosetup.constant.ToolType;
 import org.eclipse.tractusx.autosetup.entity.AutoSetupTriggerEntry;
-import org.eclipse.tractusx.autosetup.manager.AutoSetupTriggerManager;
-import org.eclipse.tractusx.autosetup.manager.OpenSSLClientManager;
-import org.eclipse.tractusx.autosetup.manager.VaultManager;
 import org.eclipse.tractusx.autosetup.model.Customer;
 import org.eclipse.tractusx.autosetup.model.SelectedTools;
 import org.eclipse.tractusx.autosetup.vault.proxy.VaultAppManageProxy;
@@ -58,9 +55,6 @@ class VaultManagerTest {
 
     @MockBean
     private AutoSetupTriggerManager autoSetupTriggerManager;
-
-    @MockBean
-    private OpenSSLClientManager openSSLClientManager;
 
     @Autowired
     private VaultManager vaultManager;
@@ -91,12 +85,12 @@ class VaultManagerTest {
         mockInputMap.put("database", "postgres");
 
         SelectedTools selectedTools = SelectedTools.builder()
-                .tool(ToolType.DFT)
-                .label("DFT")
+                .tool(ToolType.SDE_WITH_EDC_TRACTUS)
+                .label("SDE")
                 .build();
 
         mockInputMap = vaultManager.uploadKeyandValues(customer, selectedTools,mockInputMap, autoSetupTriggerEntry);
-        assertEquals(14, mockInputMap.size());
+        assertEquals(15, mockInputMap.size());
         assertEquals("test", mockInputMap.get("targetCluster"));
     }
 }

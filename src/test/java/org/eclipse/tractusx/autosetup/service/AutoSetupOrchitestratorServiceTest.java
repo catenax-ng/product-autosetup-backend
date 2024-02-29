@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -24,10 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.eclipse.tractusx.autosetup.kubeapps.proxy.KubeAppManageProxy;
 import org.eclipse.tractusx.autosetup.mapper.AutoSetupRequestMapper;
 import org.eclipse.tractusx.autosetup.model.AutoSetupRequest;
-import org.eclipse.tractusx.autosetup.service.AutoSetupOrchitestratorService;
+import org.eclipse.tractusx.autosetup.portal.proxy.PortalIntegrationProxy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,6 +45,9 @@ class AutoSetupOrchitestratorServiceTest {
     //@Spy
     @Autowired
     private AutoSetupOrchitestratorService autoSetupOrchitestratorService;
+    
+    @MockBean
+    private PortalIntegrationProxy portalIntegrationProxy;
 
 
     @MockBean
@@ -69,14 +71,11 @@ class AutoSetupOrchitestratorServiceTest {
                 "        \"bpnNumber\": \"BPN12345611\",\n" +
                 "        \"role\": \"recycler\",\n" +
                 "        \"subscriptionId\": \"DAS-D234\",\n" +
-                "        \"serviceId\": \"DFT-WITH-EDC\"\n" +
+                "        \"serviceId\": \"12345\"\n" +
                 "    }\n" +
                 "}";
-
         try {
             AutoSetupRequest autoSetupRequest = new ObjectMapper().readValue(json,AutoSetupRequest.class);
-            Mockito.when(customerDetailsMapper.fromCustomer(Mockito.any(AutoSetupRequest.class))).thenReturn(json);
-            Mockito.when(kubeAppManageProxy.checkNamespace(Mockito.anyString(),Mockito.anyString())).thenReturn("true");
             String uuid = autoSetupOrchitestratorService.createPackage(autoSetupRequest);
             assertThat(uuid).isNotEmpty();
 

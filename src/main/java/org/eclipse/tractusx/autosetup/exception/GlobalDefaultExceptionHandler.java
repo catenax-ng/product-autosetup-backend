@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -26,6 +26,7 @@ import java.util.Map;
 import org.eclipse.tractusx.autosetup.utility.LogUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -64,13 +65,19 @@ public class GlobalDefaultExceptionHandler extends ResponseEntityExceptionHandle
 
 	@Override
 	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-			HttpHeaders headers, HttpStatus status, WebRequest request) {
+																  HttpHeaders headers, HttpStatusCode status, WebRequest request) {
 		
 		Map<String, String> errors = new HashMap<>();
+		
+		Object inputRequest = ex.getBindingResult().getTarget();
+		if (inputRequest != null)
+			log.error(LogUtil.encode(inputRequest.toString()));
+		
 		ex.getBindingResult().getAllErrors().forEach(error -> {
 			String fieldName = ((FieldError) error).getField();
+			Object fieldValue = ((FieldError) error).getRejectedValue();
 			String errorMessage = error.getDefaultMessage();
-			log.error(LogUtil.encode(fieldName+ " -> "+errorMessage));
+			log.error(LogUtil.encode(fieldName+ "::"+fieldValue+" ->"+errorMessage));
 			errors.put(fieldName, errorMessage);
 		});
 		

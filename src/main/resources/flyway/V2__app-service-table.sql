@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -33,3 +33,11 @@ VALUES('DFT-WITH-EDC', 'DFT-WITH-EDC', '[{"tool": "DFT_WITH_EDC","label": "dftwt
 INSERT INTO app_service_catalog_tbl
 (canonical_service_id, ct_name, service_tools, workflow)
 VALUES('EDC', 'EDC', '[{"tool": "EDC","label": "edc"}]', 'EDC');
+
+INSERT INTO app_service_catalog_tbl
+(canonical_service_id, ct_name, service_tools, workflow)
+VALUES('DFT-WITH-EDC-TX', 'DFT-WITH-EDC-TX', '[{"tool": "DFT_WITH_EDC_TRACTUS","label": "dftedctx"}]', 'EDC_TX_DFT');
+
+INSERT INTO app_service_catalog_tbl
+(canonical_service_id, ct_name, service_tools, workflow)
+VALUES('EDC-TX', 'EDC-TX', '[{"tool": "EDC_TRACTUS","label": "edctx"}]', 'EDC_TX');

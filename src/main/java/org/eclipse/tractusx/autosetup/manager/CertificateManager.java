@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -52,7 +52,7 @@ public class CertificateManager {
 
 	@SneakyThrows
 	@Retryable(value = {
-			ServiceException.class }, maxAttemptsExpression = "${retry.maxAttempts}", backoff = @Backoff(delayExpression = "${retry.backOffDelay}"))
+			ServiceException.class }, maxAttemptsExpression = "${retry.maxAttempts}", backoff = @Backoff(delayExpression = "#{${retry.backOffDelay}}"))
 	public Map<String, String> createCertificate(Customer customerDetails, SelectedTools tool, Map<String, String> inputData,
 			AutoSetupTriggerEntry triger) {
 
@@ -72,9 +72,12 @@ public class CertificateManager {
 			String c = Optional.ofNullable(customerDetails.getCountry()).map(r -> r).orElse("DE");
 			String st = Optional.ofNullable(customerDetails.getState()).map(r -> r).orElse("BE");
 			String l = Optional.ofNullable(customerDetails.getCity()).map(r -> r).orElse("Berline");
-
-			String params = String.format("O=%s, OU=%s, C=%s, ST=%s, L=%s, CN=%s", tenantName,
-					bpnNumber, c, st, l, "www." + tenantName + ".com");
+			
+			//remove all special character for certificate CN name
+			String cn = tenantName.replaceAll("[^a-zA-Z0-9\\s\\-_]", "");
+			
+			String params = String.format("O=%s, OU=%s, C=%s, ST=%s, L=%s, CN=%s", cn,
+					bpnNumber, c, st, l, "www." + cn + ".com");
 
 			Certutil.CertKeyPair certificateDetails = Certutil.generateSelfSignedCertificateSecret(params, null, null);
 			X509Certificate certificate = certificateDetails.certificate();

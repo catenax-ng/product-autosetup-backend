@@ -1,6 +1,6 @@
 /********************************************************************************
- * Copyright (c) 2022 T-Systems International GmbH
- * Copyright (c) 2022 Contributors to the Eclipse Foundation
+ * Copyright (c) 2022, 2023 T-Systems International GmbH
+ * Copyright (c) 2022, 2023 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -20,10 +20,13 @@
 
 package org.eclipse.tractusx.autosetup.portal.model;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 
 @Data
 @Builder
@@ -34,5 +37,11 @@ public class ServiceInstanceResultResponse {
 	private TechnicalUserInfo technicalUserInfo;
 
 	private ClientInfo clientInfo;
+	
+	@SneakyThrows
+    public String toJsonString() {
+        final ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(this);
+    }
 
 }
