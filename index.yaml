@@ -16,6 +16,25 @@ entries:
     urls:
     - https://github.com/catenax-ng/product-autosetup-backend/releases/download/autosetup-1.0.0/autosetup-1.0.0.tgz
     version: 1.0.0
+  managed-service-orchestrator:
+  - apiVersion: v2
+    appVersion: 1.5.3
+    created: "2024-02-29T15:06:58.080449293Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 11.x.x
+    description: This service will help service provider to set up DFT/SDE with EDC
+      and EDC as service in service provider environment.
+    digest: 0e2f37ba05d1b4d37823abdbcb97c6f852e2a90aee93d2c5bad309e62a9b2332
+    name: managed-service-orchestrator
+    sources:
+    - https://github.com/eclipse-tractusx/managed-service-orchestrator
+    type: application
+    urls:
+    - https://github.com/catenax-ng/product-autosetup-backend/releases/download/managed-service-orchestrator-1.5.3/managed-service-orchestrator-1.5.3.tgz
+    version: 1.5.3
   orchestrator:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -32,4 +51,4 @@ entries:
     urls:
     - https://github.com/catenax-ng/product-autosetup-backend/releases/download/orchestrator-1.0.0/orchestrator-1.0.0.tgz
     version: 1.0.0
-generated: "2022-10-21T09:28:52.147552111Z"
+generated: "2024-02-29T15:06:58.080458931Z"
